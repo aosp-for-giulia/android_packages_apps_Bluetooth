@@ -2510,17 +2510,23 @@ bool BtifAvStateMachine::StateOpened::ProcessEvent(uint32_t event, void* p_data)
         break;
       }
 
+      A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+      if (current_codec == nullptr) {
+        return false;
+      }
+      // Only HAL-managed codecs consume the audio context hint. Restarting a
+      // legacy codec session for an unchanged configuration can stop playback.
+      if (!current_codec->isHardwareProviderCodec()) {
+        log::info("skipping audio context reconfiguration for legacy codec");
+        break;
+      }
+
       log::info("updating the codec configuration for low_latency={}", is_low_latency);
 
       peer_.SetLowLatencyMode(is_low_latency);
       btav_a2dp_codec_audio_context_t audio_context =
               is_low_latency ? BTAV_A2DP_CODEC_AUDIO_CONTEXT_GAME
                              : BTAV_A2DP_CODEC_AUDIO_CONTEXT_MEDIA;
-
-      A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
-      if (current_codec == nullptr) {
-        return false;
-      }
 
       btav_a2dp_codec_config_t codec_config{
               .codec_type = current_codec->codecIndex(),
@@ -2783,17 +2789,23 @@ bool BtifAvStateMachine::StateStarted::ProcessEvent(uint32_t event, void* p_data
       BTA_AvSetLatency(peer_.BtaHandle(), is_low_latency);
 
       if (p_set_latency_req->reconfigure_codec && peer_.GetLowLatencyMode() != is_low_latency) {
+        A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+        if (current_codec == nullptr) {
+          return false;
+        }
+        // Only HAL-managed codecs consume the audio context hint. Restarting a
+        // legacy codec session for an unchanged configuration can stop playback.
+        if (!current_codec->isHardwareProviderCodec()) {
+          log::info("skipping audio context reconfiguration for legacy codec");
+          break;
+        }
+
         log::info("updating the codec configuration for low_latency={}", is_low_latency);
 
         peer_.SetLowLatencyMode(is_low_latency);
         btav_a2dp_codec_audio_context_t audio_context =
                 is_low_latency ? BTAV_A2DP_CODEC_AUDIO_CONTEXT_GAME
                                : BTAV_A2DP_CODEC_AUDIO_CONTEXT_MEDIA;
-
-        A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
-        if (current_codec == nullptr) {
-          return false;
-        }
 
         btav_a2dp_codec_config_t codec_config{
                 .codec_type = current_codec->codecIndex(),
